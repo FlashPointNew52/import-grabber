@@ -1,0 +1,17 @@
+{% extends 'subnav.html' %}
+
+{% block templPage %}
+
+    <form class="form-inline my-2 my-lg-0" action="{{ action }}" method="get">
+        <input class="form-control mr-sm-2" type="text" placeholder="Поиск" name="link" aria-label="Поиск"
+               style="width: calc(100% - 200px);">
+        {% if action == '/test' %}
+            <p><input name="type" type="radio" value="data" checked>Источник</p>
+            <p><input name="type" type="radio" value="list">Список</p>
+        {% endif %}
+        <button class="btn btn-outline-success my-2 my-sm-0" type="submit">Найти</button>
+    </form>
+    {% if data %}
+        {{ data }}
+    {% endif %}
+{% endblock %}

@@ -1,0 +1,8 @@
+#!/bin/bash
+
+
+screen -dmS proxy-updater python3 updateproxy.py
+echo proxy-updater
+screen -dmS python-server python3 server.py 9000
+echo python-server
+exit 0

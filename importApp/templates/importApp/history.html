@@ -1,0 +1,61 @@
+{% extends 'importApp/index.html' %}
+
+{% load filters %}
+
+{% block templPage %}
+    {% if elasticData.urls_historyIndex is True %}
+
+        <div>
+            <form action='/settings/deleteIndex' method='POST'>
+                {% csrf_token %}
+                <input name="index" value="urls_history" style="display: none">
+                <button type='submit'>Удалить индекс urls_history</button>
+            </form>
+
+            <table>
+                <div>Записей: {{elasticData.count}}</div>
+                <thead>
+                    <tr></tr>
+                </thead>
+                <tbody>
+                    {% for data in elasticData.urls_history %}
+                        <tr><td>{{ data|get:"_source" }}</td><td><button type='button' onclick="del('{{ data|get:"_id" }}')">Удалить</button></td></tr>
+
+                    {% endfor %}
+                </tbody>
+            </table>
+
+
+
+        </div>
+
+        <script type="text/javascript">
+
+            function del(id){
+                $.ajax({
+                    url: '/settings/deleteData',
+                    type: 'POST',
+                    data: {
+                        csrfmiddlewaretoken: '{{ csrf_token }}',
+                        objId: id,
+                        index: 'urls_history'
+                    },
+                    dataType: 'json'
+                }).done(function (data) {
+                    $("td").filter(function() {
+                        return $(this).text() == id;
+                    }).closest("tr").remove();
+                });
+            }
+        </script>
+    {% else %}
+        <div>
+            <span>Индекс urls_history отсутствует</span>
+            <form action='/settings/createIndex' method='POST'>
+                {% csrf_token %}
+                <input name="index" value="urls_history" style="display: none">
+                <button type='submit'>Создать индекс</button>
+            </form>
+        </div>
+    {% endif %}
+{% endblock %}

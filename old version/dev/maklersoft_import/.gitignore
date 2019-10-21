@@ -1,0 +1,10 @@
+hypnotoad.pid
+app.conf
+lib/Rplus/DB.pm
+log/
+load_list
+endpoints
+python-server/top_secret.py
+python-server/test.py
+python-server/__pycache__/*.cpython-34.pyc
+python-server/practice-scripts/

@@ -1,0 +1,246 @@
+{% extends 'managePanel/index.html' %}
+{% load filters %}
+
+{% block bodyTempl %}
+    {% if elasticData.mediasImportIndex is True %}
+
+        <div>
+            <form id="mediaImportAddForm" method='POST' name="addCity" autocomplete="off">
+
+                <div>
+                    <input name="id" value="" type="hidden">
+                    <select name="media" value="" placeholder="Источник" required class="form-control form-control-sm">
+                        {% for media in elasticData.medias %}
+                            <option value="{{ media.code }}">{{ media.name }}</option>>
+                        {% endfor %}
+                    </select>
+                    <fieldset name="city[0]">
+                        <select name="city[0][code]" value="" placeholder="Город" required class="form-control form-control-sm">
+                            {% for city in elasticData.cities %}
+                                <option value="{{ city.code }}">{{ city.name }}</option>>
+                            {% endfor %}
+                        </select>
+{#                        <input name="city[0][code]" value="" placeholder="Город" required list="cities" class="form-control form-control-sm">#}
+                        <input name="city[0][url]" value="" type="url" placeholder="Основной сайт" required class="form-control form-control-sm">
+                        <input name="city[0][pages]" value="" type="number" placeholder="Страниц" required class="form-control form-control-sm">
+                        <input name="city[0][pause]" value="" type="number" placeholder="Пауза" required class="form-control form-control-sm">
+                        <fieldset>
+                            <input name="city[0][links][0][link]" type="url" value="" placeholder="Ссылка" required class="form-control form-control-sm">
+                            <input name="city[0][links][0][params]" type="text" value="" placeholder="Параметр" class="form-control form-control-sm">
+                            <div class="btn btn-primary btn-sm addLinkButton" id="addLinkButton">Добавить ссылку</div>
+                        </fieldset>
+                    </fieldset>
+                    <div class="btn btn-primary btn-sm" id="addCityButton">Добавить город</div>
+                </div>
+                <button type="button" class="btn btn-primary btn-sm" id="saveButton">Добавить источник</button>
+            </form>
+
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <td>ID</td>
+                        <td>Код</td>
+                        <td>Название</td>
+                        <td>Зона</td>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in elasticData.mediasImport %}
+                        <tr>
+                            <td>{{ row|get:"_id" }} </td>
+                            <td>{{ row|get:"_source"|get:"media" }}</td>
+                            {% for cit in row|get:"_source"|get:"city" %}
+                                <td>{{ cit.name }}</td>
+                                <td>{{ cit.url }}</td>
+                                <td>{{ cit.pages }}</td>
+                                <td>{{ cit.pause }}</td>
+                                <td><button type='button' onclick="onOff('{{ row|get:"_id" }}', '{{ cit.state }}')">{% if cit.state == 'active' %} Выкл {% else %} Вкл{% endif %}</button></td>
+                            {% endfor %}
+                            <td>{{ row.cityName }}</td>
+                            <td>{{ row.timeZone }}</td>
+                            <td>{{ row }}</td>
+
+                            <td><button type='button' onclick="del('{{ row|get:"_id" }}')">Удалить</button></td>
+                            <td><button type='button' onclick="edit('{{ row.id }}')">Редактировать</button></td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <form action='/settings/deleteIndex' method='POST'>
+                {% csrf_token %}
+                <input name="index" value="medias_import" style="display: none">
+                <button type='submit'>Удалить индекс medias_import</button>
+            </form>
+        </div>
+        {% csrf_token %}
+        <script type="text/javascript">
+
+            function del(id){
+                $.ajax({
+                    url: '/settings/deleteData',
+                    type: 'POST',
+                    data: {
+                        csrfmiddlewaretoken: '{{ csrf_token }}',
+                        objId: id,
+                        index: 'medias_import'
+                    },
+                    dataType: 'json'
+                }).done(function (data) {
+                    $("td").filter(function() {
+                        return $(this).text() == id;
+                    }).closest("tr").remove();
+                });
+            }
+
+            function onOff(id, value){
+                $.ajax({
+                    url: '/settings/setActiveMedia',
+                    type: 'POST',
+                    data: {
+                        csrfmiddlewaretoken: '{{ csrf_token }}',
+                        objId: id,
+                        value: value
+                    },
+                    dataType: 'json'
+                }).done(function (data) {
+                    alert("Состояние изменено");
+                });
+            }
+
+            function edit(id){
+                $("#addButton").html("Изменить город");
+                var rt = $("td").filter(function() {
+                    return $(this).text() == id;
+                }).closest("tr").children();
+                console.log(rt.children(), $("#addForm").children()[0])
+                $($("#addForm").children()[1]).val(id);
+                $($("#addForm").children()[2]).val($(rt[1]).html());
+                $($("#addForm").children()[3]).val($(rt[2]).html());
+                $($("#addForm").children()[4]).val($(rt[3]).html());
+            }
+
+
+
+            $(function () {
+
+                $("#mediaImportAddForm").on('click', '.addLinkButton', function () {
+                    var city = $($($(this).parent()).parent()).attr("name");
+                    var num = ($($(this).parent()).children().length - 1) / 2;
+                    $(this).before(
+                        "<input name=\""+ city + "[links]["+ num +"][link]\" value=\"\" placeholder=\"Ссылка\" required class=\"form-control form-control-sm\">" +
+                        "<input name=\""+ city + "[links]["+ num +"][params]\" value=\"\" placeholder=\"Параметр\" class=\"form-control form-control-sm\">")
+                });
+
+                $("#addCityButton").click(function () {
+                    var num = $($(this).parent()).find("fieldset").length / 2;
+                    $("#addCityButton").before("<fieldset name=\"city["+ num +"]\">\n" +
+                        "                        <input name=\"city["+ num +"][name]\" value=\"\" placeholder=\"Город\" required list=\"cities\" class=\"form-control form-control-sm\">\n" +
+                        "                        <input name=\"city["+ num +"][url]\" value=\"\" type=\"url\" placeholder=\"Основной сайт\" required class=\"form-control form-control-sm\">\n" +
+                        "                        <input name=\"city["+ num +"][pages]\" value=\"\" type=\"number\" placeholder=\"Страниц\" required class=\"form-control form-control-sm\">\n" +
+                        "                        <input name=\"city["+ num +"][pause]\" value=\"\" type=\"number\" placeholder=\"Пауза\" required class=\"form-control form-control-sm\">\n" +
+                        "                        <fieldset>\n" +
+                        "                            <input name=\"city["+ num +"][links][0][link]\" value=\"\" type=\"url\" placeholder=\"Ссылка\" required class=\"form-control form-control-sm\">\n" +
+                        "                            <input name=\"city["+ num +"][links][0][params]\" value=\"\" type=\"text\" placeholder=\"Параметр\" class=\"form-control form-control-sm\">\n" +
+                        "                            <div class=\"btn btn-primary btn-sm addLinkButton\" id=\"addLinkButton\">Добавить ссылку</div>\n" +
+                        "                        </fieldset>\n" +
+                        "                    </fieldset>");
+                });
+
+                $('#saveButton').click(function () {
+                    var formdata = $("#mediaImportAddForm").serializeObject();
+                    $.ajax({
+                        url: '/settings/addMediasImport',
+                        headers:
+                            {
+                                'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val()
+                            },
+                        contentType: "text/plain",
+                        type: 'POST',
+                        data: JSON.stringify(formdata)
+                    }).done(function (data) {
+                        $("td").filter(function() {
+                            return $(this).text() == id;
+                        }).closest("tr").remove();
+                    });
+                })
+
+                $.fn.serializeObject = function(){
+
+                    var self = this,
+                        json = {},
+                        push_counters = {},
+                        patterns = {
+                            "validate": /^[a-zA-Z][a-zA-Z0-9_]*(?:\[(?:\d*|[a-zA-Z0-9_]+)\])*$/,
+                            "key":      /[a-zA-Z0-9_]+|(?=\[\])/g,
+                            "push":     /^$/,
+                            "fixed":    /^\d+$/,
+                            "named":    /^[a-zA-Z0-9_]+$/
+                        };
+
+
+                    this.build = function(base, key, value){
+                        base[key] = value;
+                        return base;
+                    };
+
+                    this.push_counter = function(key){
+                        if(push_counters[key] === undefined){
+                            push_counters[key] = 0;
+                        }
+                        return push_counters[key]++;
+                    };
+
+                    $.each($(this).serializeArray(), function(){
+
+                        // skip invalid keys
+                        if(!patterns.validate.test(this.name)){
+                            return;
+                        }
+
+                        var k,
+                            keys = this.name.match(patterns.key),
+                            merge = this.value,
+                            reverse_key = this.name;
+
+                        while((k = keys.pop()) !== undefined){
+
+                            // adjust reverse_key
+                            reverse_key = reverse_key.replace(new RegExp("\\[" + k + "\\]$"), '');
+
+                            // push
+                            if(k.match(patterns.push)){
+                                merge = self.build([], self.push_counter(reverse_key), merge);
+                            }
+
+                            // fixed
+                            else if(k.match(patterns.fixed)){
+                                merge = self.build([], k, merge);
+                            }
+
+                            // named
+                            else if(k.match(patterns.named)){
+                                merge = self.build({}, k, merge);
+                            }
+                        }
+
+                        json = $.extend(true, json, merge);
+                    });
+
+                    return json;
+                };
+
+            });
+
+        </script>
+    {% else %}
+        <div>
+            <span>Индекс medias_import отсутствует</span>
+            <form action='/settings/createIndex' method='POST'>
+                {% csrf_token %}
+                <input name="index" value="medias_import" style="display: none">
+                <button type='submit'>Создать индекс medias_import</button>
+            </form>
+        </div>
+    {% endif %}
+{% endblock %}

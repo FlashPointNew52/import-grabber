@@ -1,0 +1,14 @@
+#!/bin/bash
+
+#for i in vnh  barahlo bnspb   mkv   bn
+
+screen -d -S present_archive -m perl ./../lib/Rplus/Import/Item/present_archive_parser.pl
+echo present_archive
+
+for i in avito present_site irr mkv cian #avito present_site irr mkv cian farpost yandex
+do
+    SC_NAME="$i"
+    echo $SC_NAME
+    screen -d -S $SC_NAME -m ./minion_worker.pl minion worker -q $SC_NAME -j 18
+done
+exit 0

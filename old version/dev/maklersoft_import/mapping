@@ -1,0 +1,233 @@
+"ms_offer" : {
+   "mappings" : {
+     "offers" : {
+       "properties" : {
+         "accountId" : {
+           "type" : "long"
+         },
+         "addDate" : {
+           "type" : "long"
+         },
+         "address" : {
+           "type" : "text",
+           "fields" : {
+             "keyword" : {
+               "type" : "keyword",
+               "ignore_above" : 256
+             }
+           }
+         },
+         "address_ext" : {
+           "type" : "text",
+           "fields" : {
+             "keyword" : {
+               "type" : "keyword",
+               "ignore_above" : 256
+             }
+           }
+         },
+         "agentId" : {
+           "type" : "long"
+         },
+         "agentName" : {
+           "type" : "text",
+           "fields" : {
+             "keyword" : {
+               "type" : "keyword",
+               "ignore_above" : 256
+             }
+           }
+         },
+         "bathroom" : {
+           "type" : "text",
+           "fields" : {
+             "keyword" : {
+               "type" : "keyword",
+               "ignore_above" : 256
+             }
+           }
+         },
+         "changeDate" : {
+           "type" : "long"
+         },
+         "condition" : {
+           "type" : "text",
+           "fields" : {
+             "keyword" : {
+               "type" : "keyword",
+               "ignore_above" : 256
+             }
+           }
+         },
+         "contactId" : {
+           "type" : "long"
+         },
+         "contactName" : {
+           "type" : "text",
+           "fields" : {
+             "keyword" : {
+               "type" : "keyword",
+               "ignore_above" : 256
+             }
+           }
+         },
+         "contactType" : {
+           "type" : "text",
+           "fields" : {
+             "keyword" : {
+               "type" : "keyword",
+               "ignore_above" : 256
+             }
+           }
+         },
+         "data" : {
+           "type" : "text",
+           "fields" : {
+             "keyword" : {
+               "type" : "keyword",
+               "ignore_above" : 256
+             }
+           }
+         },
+         "description" : {
+           "type" : "text",
+           "fields" : {
+             "keyword" : {
+               "type" : "keyword",
+               "ignore_above" : 256
+             }
+           }
+         },
+         "finalRaiting" : {
+           "type" : "float"
+         },
+         "floor" : {
+           "type" : "long"
+         },
+         "houseType" : {
+           "type" : "text",
+           "fields" : {
+             "keyword" : {
+               "type" : "keyword",
+               "ignore_above" : 256
+             }
+           }
+         },
+         "id" : {
+           "type" : "long"
+         },
+         "lastSeenDate" : {
+           "type" : "long"
+         },
+         "locRating" : {
+           "type" : "float"
+         },
+         "locality" : {
+           "type" : "text",
+           "fields" : {
+             "keyword" : {
+               "type" : "keyword",
+               "ignore_above" : 256
+             }
+           }
+         },
+         "location" : {
+           "type" : "geo_point"
+         },
+         "mortgages" : {
+           "type" : "long"
+         },
+         "newBuilding" : {
+           "type" : "long"
+         },
+         "offerRaiting" : {
+           "type" : "float"
+         },
+         "offerTypeCode" : {
+           "type" : "text",
+           "fields" : {
+             "keyword" : {
+               "type" : "keyword",
+               "ignore_above" : 256
+             }
+           }
+         },
+         "ownerPrice" : {
+           "type" : "float"
+         },
+         "personId" : {
+           "type" : "long"
+         },
+         "roomScheme" : {
+           "type" : "text",
+           "fields" : {
+             "keyword" : {
+               "type" : "keyword",
+               "ignore_above" : 256
+             }
+           }
+         },
+         "roomsCount" : {
+           "type" : "long"
+         },
+         "spec" : {
+           "type" : "text",
+           "fields" : {
+             "keyword" : {
+               "type" : "keyword",
+               "ignore_above" : 256
+             }
+           }
+         },
+         "squareTotal" : {
+           "type" : "float"
+         },
+         "stageCode" : {
+           "type" : "text",
+           "fields" : {
+             "keyword" : {
+               "type" : "keyword",
+               "ignore_above" : 256
+             }
+           }
+         },
+         "stateCode" : {
+           "type" : "text",
+           "fields" : {
+             "keyword" : {
+               "type" : "keyword",
+               "ignore_above" : 256
+             }
+           }
+         },
+         "tag" : {
+           "type" : "text",
+           "fields" : {
+             "keyword" : {
+               "type" : "keyword",
+               "ignore_above" : 256
+             }
+           }
+         },
+         "tags" : {
+           "type" : "text",
+           "fields" : {
+             "keyword" : {
+               "type" : "keyword",
+               "ignore_above" : 256
+             }
+           }
+         },
+         "typeCode" : {
+           "type" : "text",
+           "fields" : {
+             "keyword" : {
+               "type" : "keyword",
+               "ignore_above" : 256
+             }
+           }
+         }
+       }
+     }
+   }
+ }

@@ -1,0 +1,78 @@
+{% extends 'importApp/index.html' %}
+{% load filters %}
+
+
+{% block templPage %}
+
+    <div>
+        <legend>Статус заполнителя</legend>
+        <label class="switch">
+            <input type="checkbox" name="filler" {% if data.filler %} checked {% endif%}>
+            <span class="slider"></span>
+        </label>
+    </div>
+    <div>
+        <legend>Статус разбор списка</legend>
+        <label class="switch">
+            <input type="checkbox" name="list_parser" {% if data.parserList %} checked {% endif%}>
+            <span class="slider"></span>
+        </label>
+    </div>
+    <div>
+        <legend>Статус разбор Авиты</legend>
+        <label class="switch">
+            <input type="checkbox" name="obj_parser:avito" {% if data.parserObj|alive:'avito' %} checked {% endif%}>
+            <span class="slider"></span>
+        </label>
+    </div>
+    <div>
+        <legend>Статус разбор Презента</legend>
+        <label class="switch">
+            <input type="checkbox" name="obj_parser:present_site" {% if data.parserObj|alive:'present_site' %} checked {% endif%}>
+            <span class="slider"></span>
+        </label>
+    </div>
+    <div>
+        <legend>Статус разбор Из рук в руки</legend>
+        <label class="switch">
+            <input type="checkbox" name="obj_parser:irr" {% if data.parserObj|alive:'irr' %} checked {% endif%}>
+            <span class="slider"></span>
+        </label>
+    </div>
+    <div>
+        <legend>Статус обновление списка прокси</legend>
+        <label class="switch">
+            <input type="checkbox" name="proxy_getter" {% if data.proxyGetter %} checked {% endif%}>
+            <span class="slider"></span>
+        </label>
+    </div>
+
+    {% csrf_token %}
+    <script type="text/javascript">
+        $(function () {
+            $("input[type='checkbox']").click(function () {
+                let name = $(this).attr('name');
+                let val = $(this).prop('checked');
+                url = '';
+                if(name.indexOf("obj_parser") > -1)
+                    url = '/import/jobs?obj_parser=' + name.split(':')[1] +'&state=' + val;
+                else
+                    url = '/import/jobs?' + name+'=' + val;
+                console.log(name, val);
+                $.ajax({
+                    url: url,
+                    headers: {
+                            'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val()
+                    },
+                    contentType: "text/plain",
+                    type: 'GET'
+                }).done(function (data) {
+                    $("td").filter(function() {
+                        return $(this).text() == id;
+                    }).closest("tr").remove();
+                });
+            });
+        });
+
+    </script>
+{% endblock %}

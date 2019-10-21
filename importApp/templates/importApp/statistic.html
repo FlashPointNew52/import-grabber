@@ -1,0 +1,58 @@
+{% extends 'importApp/index.html' %}
+
+{% load filters %}
+
+{% block templPage %}
+    {% if elasticData.resource_urlsIndex is True %}
+
+        <div>
+            <form action='/settings/deleteIndex' method='POST'>
+                {% csrf_token %}
+                <input name="index" value="resource_urls" style="display: none">
+                <button type='submit'>Удалить индекс resource_urls</button>
+            </form>
+
+            <table>
+                <div>Записей: {{elasticData.countUrls}}</div>
+                <thead>
+                    <tr></tr>
+                </thead>
+                <tbody>
+                    {% for data in elasticData.resource_urls %}
+                        <tr><td>{{ data|get:"_source" }}</td><td><button type='button' onclick="del('{{ data|get:"_id" }}')">Удалить</button></td></tr>
+
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <script type="text/javascript">
+
+            function del(id){
+                $.ajax({
+                    url: '/settings/deleteData',
+                    type: 'POST',
+                    data: {
+                        csrfmiddlewaretoken: '{{ csrf_token }}',
+                        objId: id,
+                        index: 'resource_urls'
+                    },
+                    dataType: 'json'
+                }).done(function (data) {
+                    $("td").filter(function() {
+                        return $(this).text() == id;
+                    }).closest("tr").remove();
+                });
+            }
+        </script>
+    {% else %}
+        <div>
+            <span>Индекс resource_urls отсутствует</span>
+            <form action='/settings/createIndex' method='POST'>
+                {% csrf_token %}
+                <input name="index" value="resource_urls" style="display: none">
+                <button type='submit'>Создать индекс</button>
+            </form>
+        </div>
+    {% endif %}
+{% endblock %}

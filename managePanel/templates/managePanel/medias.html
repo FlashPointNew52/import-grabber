@@ -1,0 +1,95 @@
+{% extends 'managePanel/index.html' %}
+
+{% block bodyTempl %}
+    {% if elasticData.mediasImportIndex is True %}
+
+        <div>
+            <form action='/settings/addMedias' id="addForm" method='POST' name="addCity" style="display: inline-flex;">
+                {% csrf_token %}
+                <input name="id" value="" style="display: none;">
+                <input name="code" value="" placeholder="Код города" required minlength="3" class="form-control form-control-sm" style="flex: 0 0 100px;">
+                <input name="name" value="" placeholder="Город" required class="form-control form-control-sm" style="flex: 0 0 250px;">
+                <input name="tz" value="" placeholder="Временная зона" class="form-control form-control-sm" style="flex: 0 0 100px;">
+                <button type='submit' formtarget="addCity" class="btn btn-primary btn-sm" style="flex: 0 0 180px;" id="addButton">Добавить город</button>
+            </form>
+
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <td>ID</td>
+                        <td>Код</td>
+                        <td>Название</td>
+                        <td>Зона</td>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for city in elasticData.cities %}
+                        <tr>
+                            <td>{{ city.id }}</td>
+                            <td>{{ city.cityCode }}</td>
+                            <td>{{ city.cityName }}</td>
+                            <td>{{ city.timeZone }}</td>
+                            <td><button type='button' onclick="del('{{ city.id }}')">Удалить</button></td>
+                            <td><button type='button' onclick="edit('{{ city.id }}')">Редактировать</button></td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <form action='/settings/deleteIndex' method='POST'>
+                {% csrf_token %}
+                <input name="index" value="mediasImport" style="display: none">
+                <button type='submit'>Удалить индекс mediasImport</button>
+            </form>
+        </div>
+        {% csrf_token %}
+        <script type="text/javascript">
+            function del(id){
+                $.ajax({
+                    url: '/settings/deleteData',
+                    type: 'POST',
+                    data: {
+                        csrfmiddlewaretoken: '{{ csrf_token }}',
+                        objId: id,
+                        index: 'medias'
+                    },
+                    dataType: 'json'
+                }).done(function (data) {
+                    $("td").filter(function() {
+                        return $(this).text() == id;
+                    }).closest("tr").remove();
+                });
+            }
+
+            function edit(id){
+                $("#addButton").html("Изменить город");
+                var rt = $("td").filter(function() {
+                    return $(this).text() == id;
+                }).closest("tr").children();
+                console.log(rt.children(), $("#addForm").children()[0])
+                $($("#addForm").children()[1]).val(id);
+                $($("#addForm").children()[2]).val($(rt[1]).html());
+                $($("#addForm").children()[3]).val($(rt[2]).html());
+                $($("#addForm").children()[4]).val($(rt[3]).html());
+            }
+            $(function () {
+
+                /*$(".js-delete").click(function () {
+                    console.log($(".js-delete"));
+                });
+                */
+
+            });
+
+        </script>
+    {% else %}
+        <div>
+            <span>Индекс mediasImport отсутствует</span>
+            <form action='/settings/createIndex' method='POST'>
+                {% csrf_token %}
+                <input name="index" value="mediasImport" style="display: none">
+                <button type='submit'>Создать индекс mediasImport</button>
+            </form>
+        </div>
+    {% endif %}
+{% endblock %}

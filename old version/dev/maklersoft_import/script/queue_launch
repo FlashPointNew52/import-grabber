@@ -1,0 +1,19 @@
+#!/bin/bash
+
+screen -dmS proxy-updater python3 ../python_server/updateproxy.py
+echo proxy-updater
+
+screen -dmS python-server python3 ../python_server/server.py 9000
+echo python-server
+
+screen -d -S queue -m perl minion_queuer.pl -t 1800
+echo queue
+
+for i in avito present_site #cian #irr mkv  #avito present_site irr mkv cian farpost yandex
+do
+    SC_NAME="$i"
+    echo $SC_NAME
+    screen -d -S $SC_NAME -m ./minion_worker.pl minion worker -q $SC_NAME -j 18
+done
+
+exit 0

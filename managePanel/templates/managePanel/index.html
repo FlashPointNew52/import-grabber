@@ -1,0 +1,18 @@
+{% extends 'main_templ.html' %}
+
+{% block submenu %}
+    <nav>
+        <a href="/settings/cities">Параметры городов</a>
+        <a href="/settings/medialist">Доступные источники</a>
+        <a href="/settings/mediasimport">Параметры импорта</a>
+        <a href="/settings/elastic">ElasticSearch</a>
+    </nav>
+{% endblock %}
+
+{% block templPage %}
+    <div class="view">
+        {% block bodyTempl %}
+        {% endblock %}
+    </div>
+
+{% endblock %}
