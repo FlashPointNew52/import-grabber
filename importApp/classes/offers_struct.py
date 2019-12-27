@@ -163,7 +163,7 @@ def get_BC(x):
         'таунхаус': 'townhouse',
         'дуплекс': 'duplex',
         'коттедж': 'cottage',
-        'дом': 'house',
+        'дом': 'single_house',
         'таунхаусы': 'townhouse',
         'коттеджи': 'cottage',
         'дома': 'house',

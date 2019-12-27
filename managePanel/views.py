@@ -5,6 +5,7 @@ import json
 from django.views.generic import View
 from elasticsearch import Elasticsearch
 from managePanel.classes import mediaCity, media
+import managePanel.classes.mappings as mappings
 import time
 
 es = Elasticsearch()
@@ -52,7 +53,7 @@ class SettingsMediaList(View):
 
 class SettingsMediasImport(View):
     def get(self, request):
-        
+
         elasticData = {
             'mediasImportIndex': es.indices.exists(index='medias_import')
         }
@@ -85,13 +86,14 @@ class SettingsElastic(View):
             elasticData['count'] = data['hits']['total']['value']
             if elasticData['count'] > 0:
                 elasticData['source_data'] = data['hits']['hits']
-    
+
         return render(request, 'managePanel/elastic.html', context={'elasticData': elasticData})
 
 
 class CreateIndex(View):
     def post(self, request):
-        es.indices.create(index=request.POST.get('index'))
+        mapping = mappings.get_map(request.POST.get('index'))
+        es.indices.create(index=request.POST.get('index'), body=mapping)
         return HttpResponseRedirect(request.META.get('HTTP_REFERER','/'))
 
 
@@ -128,7 +130,7 @@ class AddMedia(View):
 class AddMediaImport(View):
     def post(self, request):
         jsonData = json.loads(request.body.decode('utf-8'));
-        
+
         # ms = media.Media(request.POST.get('code'), request.POST.get('name'))
         es.index('medias_import', jsonData, "import_unit")
         # es.reindex

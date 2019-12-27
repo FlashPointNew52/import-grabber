@@ -34,7 +34,6 @@ parserObjEvent = {
 
 class Main(View):
     def get(self, request):
-        print(request.GET.get('link'))
         data = None
         if(request.GET.get('link')):
             try:
@@ -49,13 +48,26 @@ class Main(View):
                                         },
                                  filter_path=['hits.hits._*', 'hits.total.value'])
             except Exception as ex:
-                print(traceback.format_exc())
+                print("Error", traceback.format_exc())
 
         return render(request, 'index.html', context={'data': data, 'action': '/info'})
 
+class Execute(View):
+    def get(self, request):
+        data = None
+        if(request.GET.get('link')):
+            try:
+
+                data = es.update_by_query(index='results_list',
+                                 body=request.GET.get('link'))
+            except Exception as ex:
+                print("Error", traceback.format_exc())
+
+        return render(request, 'index.html', context={'data': data, 'action': '/execute'})
+
+
 class Test(View):
     def get(self, request):
-        print(request.GET.get('link'))
         mediaRes = None
         data = request.GET.get('link')
         if(data):
@@ -66,6 +78,8 @@ class Test(View):
                     mediaRes = globals()[data['media']]().get_data(data)
                 elif request.GET.get('type') and request.GET.get('type') == 'list':
                     mediaRes = globals()[data['media']]().parseList(data)
+            except BaseException as ex:
+                mediaRes = ex
             except Exception as ex:
                 mediaRes = traceback.format_exc()
 
@@ -81,14 +95,14 @@ class FindHistory(View):
                                         body={
                                             "query": {
                                                 "query_string" : {
-                                                    "default_field": "data",
-                                                    "query" :  "\"" + request.GET.get('link') + "\"",
+                                                    "default_field": "\"" + "data" + "\"",
+                                                    "query" :  request.GET.get('link'),
                                                 }
                                             }
                                         },
                                  filter_path=['hits.hits._*', 'hits.total.value'])
             except Exception as ex:
-                print(traceback.format_exc())
+                print("Error", traceback.format_exc())
 
         return render(request, 'index.html', context={'data': data, 'action': '/findHistory'})
 
@@ -172,14 +186,14 @@ class Statistic(View):
         if elasticData['resource_urlsIndex']:
             data = es.search(index='resource_urls',
                              filter_path=['hits.hits._*', 'hits.total.value']
-                             ,body={
-                                     "query": {
-                                         "bool": {
-                                             "must": [
-                                                 {"match": {"media": "present_site"}},
-                                             ]
-                                         }
-                             }}
+                             # ,body={
+                             #         "query": {
+                             #             "bool": {
+                             #                 "must": [
+                             #                     {"match": {"media": "present_site"}},
+                             #                 ]
+                             #             }
+                             # }}
             )
             elasticData['countUrls'] = data['hits']['total']['value']
             if elasticData['countUrls'] > 0:
@@ -289,7 +303,6 @@ class Jobs(View):
             if current_date + timedelta(minutes=10) <= datetime.now():
                 proxy.get_proxy_list()
                 current_date = datetime.now()
-                print('Update successful! Date:{date}'.format(date=current_date))
         print("Stopping \"" + proc_name + "\"")
 
     def doFiller(self, event):
@@ -329,7 +342,7 @@ class Jobs(View):
                                                         "query": {
                                                             "bool": {
                                                                 "must": [
-                                                                    {"match": {"url": data['url']}},
+                                                                    {"match": {"link": data['link']}},
                                                                     {"match": {"city": data['city']}},
                                                                     {"match": {"media": data['media']}},
                                                                 ]
@@ -338,8 +351,6 @@ class Jobs(View):
                                                     }, filter_path=['hits.hits._source', 'hits.total.value', 'hits.hits._id'])
                                 if results['hits']['total']['value'] == 0:
                                     es.index('source_data', data)
-                                else:
-                                    print("Url already added")
         print("Stopping \"" + proc_name + "\"")
 
 
@@ -348,17 +359,20 @@ class Jobs(View):
         print("Starting \"" + proc_name + "\"")
         pause = 0.5
         while not event.wait(pause):
-            pause = 5
-            results = es.search(index='source_data', filter_path=['hits.hits._source', 'hits.total.value', 'hits.hits._id'])
+            try:
+                pause = 5
+                results = es.search(index='source_data', filter_path=['hits.hits._source', 'hits.total.value', 'hits.hits._id'])
 
-            total = results['hits']['total']['value']
-            if total > 0:
-                for res in results['hits']['hits']:
-                    try:
-                        mediaFunc = globals()[res['_source']['media']]().parseList(res['_source'])
-                        es.delete('source_data', res['_id'])
-                    except Exception as ex:
-                        print(traceback.format_exc())
+                total = results['hits']['total']['value']
+                if total > 0:
+                    for res in results['hits']['hits']:
+                        try:
+                            mediaFunc = globals()[res['_source']['media']]().parseList(res['_source'])
+                            es.delete('source_data', res['_id'])
+                        except Exception as ex:
+                            print("Error", traceback.format_exc())
+            except Exception as ex:
+                print("Error", traceback.format_exc())
 
         print("Stopping \"" + proc_name + "\"")
 
@@ -368,46 +382,50 @@ class Jobs(View):
         print("Starting \"" + proc_name + "\"")
         pause = 0.5
         while not event.wait(pause):
-            pause = 5
-            results = es.search(index='resource_urls',
-                                body={
-                                    "query": {
-                                        "bool": {
-                                            "must": [
-                                                {"match": {"media": source}}
-                                            ]
+            try:
+                pause = 5
+                results = es.search(index='resource_urls',
+                                    body={
+                                        "query": {
+                                            "bool": {
+                                                "must": [
+                                                    {"match": {"media": source}}
+                                                ]
+                                            }
                                         }
-                                    }
-                                }, 
-                                filter_path=['hits.hits._source', 'hits.total.value', 'hits.hits._id'], size=10, from_=0)
+                                    },
+                                    filter_path=['hits.hits._source', 'hits.total.value', 'hits.hits._id'], size=10, from_=0)
 
-            total = results['hits']['total']['value']
-            if total > 0:
-                treads = []
-                for res in results['hits']['hits']:
-                    thread = Process(target=self.doParseMedia, args=(res, ))
-                    # thread.daemon = True
-                    treads.append(thread)
-                    thread.start()
-                for tr in treads:
-                    tr.join()
-                es.reindex
-
+                total = results['hits']['total']['value']
+                if total > 0:
+                    treads = []
+                    for res in results['hits']['hits']:
+                        thread = Process(target=self.doParseMedia, args=(res, ))
+                        # thread.daemon = True
+                        treads.append(thread)
+                        thread.start()
+                    for tr in treads:
+                        tr.join()
+                    es.reindex
+            except Exception as ex:
+                print("Error", traceback.format_exc())
         print("Stopping \"" + proc_name + "\"")
 
 
     def doParseMedia(self, args):
         try:
-            print('before:' + args['_source']['link'])
             mediaRes = globals()[args['_source']['media']]().get_data(args['_source'])
             if mediaRes:
-                print('after:' + mediaRes['sourceUrl'])
-                es.index('results_list', mediaRes)
+                if mediaRes != 'CLOSED':
+                    es.index('results_list', mediaRes)
                 es.delete('resource_urls', args['_id'])
             if args['_source'].get('pause_source'):
                 time.sleep(int(args['_source']['pause_source']))
             else:
                 time.sleep(3)
+        except BaseException as ex:
+            if str(ex) == "DELETED" or str(ex) == 'CLOSED':
+                es.delete('resource_urls', args['_id'])
         except Exception as ex:
             es.index('errors',
                      {

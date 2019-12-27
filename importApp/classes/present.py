@@ -172,7 +172,7 @@ class PresentParser:
         coords = geo_utils.get_coords_by_addr(addr_str)
 
         data["location"] = {"lat": coords['latitude'],"lon": coords['longitude']}
-        data["location_hash"] = geohash.encode(float(coords['latitude']), float(coords['longitude'])) 
+        data["location_hash"] = geohash.encode(float(coords['latitude']), float(coords['longitude']))
 
         dop_address = geo_utils.get_district_by_coords(coords['latitude'], coords['longitude'])
 
@@ -531,7 +531,7 @@ class PresentParser:
             tag_photos = check_tag_photos.find_all('div', class_='image-flex mb-1')
             for photo in tag_photos:
                 photo = {
-                    'addDate': datetime.now(),
+                    'addDate': int(time.mktime(datetime.now().timetuple())),
                     'ext': "jpg",
                     'fullName': "present_img.jpg",
                     'href': 'https://present-dv.ru' + photo.find('a')['href'],

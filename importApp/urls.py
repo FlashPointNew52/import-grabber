@@ -21,9 +21,11 @@ from .views import *
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('api/', include('api.urls')),
     path('', RedirectView.as_view(url='info', permanent=False), name='index'),
     path('info/', Main.as_view()),
     path('test/', Test.as_view()),
+    path('execute/', Execute.as_view()),
     path('findHistory/', FindHistory.as_view()),
     path('settings/', include('managePanel.urls')),
     path('import/', RedirectView.as_view(url='control', permanent=False), name='index'),

@@ -538,7 +538,7 @@ class IrrParser:
             photos = []
             for photo in tag_photos:
                 photo = {
-                    'addDate': datetime.now(),
+                    'addDate': int(time.mktime(datetime.now().timetuple())),
                     'ext': "jpg",
                     'fullName': "irr_img.jpg",
                     'href': photo['data-src'],

@@ -25,7 +25,7 @@ SECRET_KEY = '&k6o2ps!j@+4)rb%y+h0@_t)mmyrdqz9fhcb&pfhdx4(_q1!%^'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['193.124.189.96', 'makleronline.net']
+ALLOWED_HOSTS = ['193.124.189.96', 'makleronline.net', 'import.maklersoft.com', 'maklersoft.com']
 
 CSRF_COOKIE_SECURE = False
 
@@ -39,7 +39,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'importApp',
-    'managePanel'
+    'managePanel',
+    'api'
 
 ]
 

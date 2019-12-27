@@ -7,6 +7,7 @@ from datetime import timedelta
 from bs4 import BeautifulSoup
 from elasticsearch import Elasticsearch
 from datetime import datetime
+from elasticsearch import ElasticsearchException
 from requests.exceptions import ProxyError, ConnectionError, Timeout
 
 es = Elasticsearch()
@@ -18,36 +19,36 @@ class AvitoParser:
         urllist = []
         while i <= int(params['pages']):
             html_code = self.__get_html(params['link']+'?p='+str(i))
-            data_table = BeautifulSoup(html_code, 'lxml').find_all('div', {"class": "item_table"})
-            for data in data_table:
-                id = data['id']
-                link = data.find('a', {"class": "item-description-title-link"})['href']
-                data_str = data.find('div', {"class": "js-item-date c-2"})['data-absolute-date']
-                date = self.parse_data(data_str.lower())
-                url = {
-                    'url': params['url'] + link,
-                    'id': id,
-                    'date': date,
-                }
-                urllist.append(url)
+            if html_code:
+                data_table = BeautifulSoup(html_code, 'lxml').find_all('div', {"class": "item_table"})
+
+                for data in data_table:
+                    id = data['id']
+                    link = data.find('a', {"class": "snippet-link"})['href']
+                    data_str = data.find('div', {"class": "js-item-date c-2"})['data-absolute-date']
+                    date = self.parse_data(data_str.lower())
+                    url = {
+                        'url': params['url'] + link,
+                        'id': id,
+                        'date': date,
+                    }
+                    urllist.append(url)
             i = i + 1
-            time.sleep(int(params['pause']))
+            if i <= int(params['pages']):
+                time.sleep(int(params['pause']))
 
         for url in urllist:
             eid = url['id'] + "_" + url['date'].strftime('%Y%m%d')
-            has_index = es.indices.exists(index='urls_history')
-            results = None
-            if has_index:
-                results = es.search(index='urls_history',
+            results = es.search(index='urls_history',
                                 body={"query": {"bool": {"must": [{"match": {"media": params['media']}}, {"match": {"eid": eid}}]}}},
                                 filter_path=['hits.total.value'])
-            if has_index is False or results['hits']['total']['value'] == 0:
+            if results['hits']['total']['value'] == 0:
                 try:
                     es.index('urls_history', {"media": params['media'], "eid": eid, "data": url['url']})
-                    es.index('resource_urls', {"media": params['media'], "link": url['url'], 'pause': params['pause'], 'city': params['city']})
+                    es.index('resource_urls', {"media": params['media'], 'priority': 1, "link": url['url'], 'pause': params['pause'], 'city': params['city']})
                     es.reindex
                 except Exception as ex:
-                    print(traceback.format_exc())
+                    print("Error:", traceback.format_exc())
 
 
     def parse_data(self, data_str):
@@ -69,6 +70,12 @@ class AvitoParser:
         if len(result) != 0:
             month = self.month_num(result[0][1].lower())
             res = datetime(year, month, int(result[0][0]), int(result[0][2]), int(result[0][3]))
+            return res
+
+        result = re.findall(r'(\d+)\s(\w+)\s(\d{4})', data_str)
+        if len(result) != 0:
+            month = self.month_num(result[0][1].lower())
+            res = datetime(int(result[0][2]), month, int(result[0][0]), 0, 5)
             return res
 
     def month_num(self, month_str):
@@ -103,19 +110,20 @@ class AvitoParser:
 
         attempt = 1  # счетчик попыток
         delay_sec = 0.01  # время задержки (в секундах)
-        while attempt <= 10:
+        while attempt <= 15:
             try:
-                prox = proxy.set_proxy()
-                self.req = requests.get(url, proxies=prox, timeout=(3, 5), headers=proxy.get_headers("avito"), verify=where(),)
+                self.req = requests.get(url, proxies=proxy.set_proxy(), timeout=(3, 5), headers=proxy.get_headers("avito"), verify=where(),)
                 if self.req.status_code == requests.codes.ok:
                     return self.req.text
                 else:
                     attempt += 1
-            except (ProxyError, ConnectionError, Timeout):
-                # attempt += 1
-                time.sleep(delay_sec)
+            except ElasticsearchException:
                 continue
-        exit()
+            except (ProxyError, ConnectionError, Timeout):
+                time.sleep(delay_sec)
+                attempt += 1
+                continue
+        return None
 
     def get_data(self, parameters):
         url = parameters['link']
@@ -123,96 +131,109 @@ class AvitoParser:
         html_code = self.__get_html(url)  # вызов функции get_html(функция для получения html кода) с параметром в виде url-адреса
 
         global data
-        data = {
-            'importId': int(time.time() * 100000),
-            'sourceMedia': 'avito',
-            'Url4Search': "\"" + parameters['link'] + "\"",
-            'sourceUrl': parameters['link'],
-            'addDate': None,
-            'offerTypeCode': None,
-            'typeCode': None,
-            'categoryCode': None,
-            'phoneBlock': None,
-            'buildingType': None,
-            'buildingClass': None,
-            'newBuilding': None,
-            'mortgages': False,
-            'description': ''
-        }  # сформирован dict(словарь), в котором находятся записи в формате ключ:значение
 
         # обозначение "глобальности" переменных
         global soup
         global breadcrumbs
         global info
         global dop_info
+        if html_code:
+            data = {
+                'importId': int(time.time() * 100000),
+                'sourceMedia': 'avito',
+                'sourceUrl': parameters['link'],
+                'addDate': None,
+                'offerTypeCode': None,
+                'typeCode': None,
+                'categoryCode': 'rezidential',
+                'phoneBlock': None,
+                'buildingType': None,
+                'buildingClass': None,
+                'newBuilding': None,
+                'mortgages': False,
+                'description': ''
+            }  # сформирован dict(словарь), в котором находятся записи в формате ключ:значение
+            soup = BeautifulSoup(html_code, 'lxml').find('body')  # создание "дерева кода" для анализа страницы
+            breadcrumbs = []  # объявление списка "хлебных крошек"
+            error = soup.find_all('div', {'class': 'item-view-warning item-view-warning_color-red'})
+            if len(error) > 0:
+                text = error[0].find('span', {'class': 'has-bold'})
+                if text:
+                    if len(re.findall(r'(.+)закрыто(.+)', text.text)):
+                        return exit("CLOSED")
+            tag_breadcrumbs = soup.find_all('a', {"class":'js-breadcrumbs-link js-breadcrumbs-link-interaction'})  # получение "хлебных крошек"
+            for i in tag_breadcrumbs:
+                breadcrumbs.append(i.get_text().lower().strip())  # внесение каждой "крошки" в список
 
-        soup = BeautifulSoup(html_code, 'lxml').find('body')  # создание "дерева кода" для анализа страницы
-        breadcrumbs = []  # объявление списка "хлебных крошек"
-        tag_breadcrumbs = soup.find_all('a', {"class":'js-breadcrumbs-link js-breadcrumbs-link-interaction'})  # получение "хлебных крошек"
-        for i in tag_breadcrumbs:
-            breadcrumbs.append(i.get_text().lower().strip())  # внесение каждой "крошки" в список
+            info = self.__get_info()
 
-        info = self.__get_info()
+            if not info:
+                return None     #если нет блока с информацией значит объявление уже не существует
 
-        if not info:
-            return None     #если нет блока с информацией значит объявление уже не существует
+            dop_info = self.__get_advanced_info()
 
-        dop_info = self.__get_advanced_info()
+            # Обязательные поля
+            data['addDate'] = self.__get_date()
+            if not data['addDate']:
+                return None     #если нет даты то объявление уже закрыто
+            data['changeDate'] = data['addDate']
+            self.__get_offer_type_code()
+            data['typeCode'] = self.__get_type_code()
+            data['categoryCode'] = self.__get_category_code()
+            data['phoneBlock'] = self.__get_phones(parameters)
+            phones = []
+            for phone in data['phoneBlock']:
+                phones.append('7'+data['phoneBlock'][phone])
+            data['phonesArray'] = phones
+            # Обязательные поля, но возможны значения по умолчанию
 
-        # Обязательные поля
-        data['addDate'] = self.__get_date()
-        if not data['addDate']:
-            return None     #если нет даты то объявление уже закрыто
-        data['changeDate'] = data['addDate']
-        self.__get_offer_type_code()
-        data['typeCode'] = self.__get_type_code()
-        data['categoryCode'] = self.__get_category_code()
-        data['phoneBlock'] = { 'main' : self.__get_phones(parameters)}
-        # Обязательные поля, но возможны значения по умолчанию
+            data['buildingClass'] = self.__get_building_class()
+            data['buildingType'] = self.__get_building_type(data['typeCode'])
+            data['newBuilding'] = self.__get_type_novelty()
+            # data['object_stage'] = self.__get_object_stage()
 
-        data['buildingClass'] = self.__get_building_class()
-        data['buildingType'] = self.__get_building_type(data['typeCode'])
-        data['newBuilding'] = self.__get_type_novelty()
-        # data['object_stage'] = self.__get_object_stage()
+            # # Прочие поля
+            self.__get_price()
+            self.__get_mediator_company()
+            self.__get_photo_url()
+            # self.__get_email()
+            self.__get_balcony()
+            self.__get_description()
+            data['description'] = data['description'].replace("й","и").replace("ё","е").replace("ъ","ь").lower().replace("  ", " ").replace("\\.", "\\. ")
+            data['addressBlock'] = self.__get_address(url)
+            addr_str = ""
+            for value in data['addressBlock'].values():
+                if value:
+                    addr_str = addr_str + ", " + value
 
-        # # Прочие поля
-        self.__get_price()
-        self.__get_mediator_company()
-        self.__get_photo_url()
-        # self.__get_email()
-        self.__get_balcony()
-        self.__get_description()
-        data['addressBlock'] = self.__get_address(url)
-        addr_str = ""
-        for value in data['addressBlock'].values():
-            if value:
-                addr_str = addr_str + ", " + value
+            coords = geo_utils.get_coords_by_addr(addr_str)
 
-        coords = geo_utils.get_coords_by_addr(addr_str)
+            data["location"] = {"lat": coords['latitude'],"lon": coords['longitude']}
+            data["location_hash"] = geohash.encode(float(coords['latitude']), float(coords['longitude']))
 
-        data["location"] = {"lat": coords['latitude'],"lon": coords['longitude']}
-        data["location_hash"] = geohash.encode(float(coords['latitude']), float(coords['longitude']))
+            dop_address = geo_utils.get_district_by_coords(coords['latitude'], coords['longitude'])
+            if dop_address:
+                try:
+                    data['addressBlock']['admArea'] = dop_address['district']
+                    data['addressBlock']['area'] = dop_address['subdistrict']
+                    data['addressBlock']['station'] = dop_address['metro']
+                except:
+                    None
+            data['address'] = ' '.join(str(x) for x in data['addressBlock'].values()).replace("й","и").replace("ё","е").replace("ъ","ь").lower().replace("  ", " ").replace("\\.", "\\. ")
 
-        dop_address = geo_utils.get_district_by_coords(coords['latitude'], coords['longitude'])
-        if dop_address:
-            try:
-                data['addressBlock']['admArea'] = dop_address['district']
-                data['addressBlock']['area'] = dop_address['subdistrict']
-                data['addressBlock']['station'] = dop_address['metro']
-            except:
-                None
+            self.__get_rooms_count()
+            self.__get_floor()
+            self.__get_square()
+            # self.__get_condition()
+            self.__get_house_type()
 
-        self.__get_rooms_count()
-        self.__get_floor()
-        self.__get_square()
-        # self.__get_condition()
-        self.__get_house_type()
-
-        if data['offerTypeCode'] == 'rent' \
-                and data['categoryCode'] == 'rezidential':
-            data['conditions'] = self.__get_rent_fields()
-
-        return data
+            if data['offerTypeCode'] == 'rent' \
+                    and data['categoryCode'] == 'rezidential':
+                data['conditions'] = self.__get_rent_fields()
+            data['tags'] = data['address'] + ' ' +data['description']
+            return data
+        else:
+            return None
 
     def __get_id(self):
         now_date = datetime.today()
@@ -229,8 +250,8 @@ class AvitoParser:
         if all_info:
             for unit in all_info:  # достаем по одной записи из всех записей
                 unit_str = unit.get_text().lower().replace('\n', '').split(":")  # разбираем и редактируем запись
-                key = unit_str[0]  # ключем является определяющее слово (пр. адрес)
-                value = unit_str[1].replace(' ', '').replace('\xa0', '')  # значением является информирующее слово (пр. ул.Ленина)
+                key = unit_str[0].strip() # ключем является определяющее слово (пр. адрес)
+                value = unit_str[1].replace(' ', '').replace('\xa0', '').strip()  # значением является информирующее слово (пр. ул.Ленина)
                 info[key] = value  # записываем пару в словарь
 
         else:
@@ -244,7 +265,8 @@ class AvitoParser:
                     value = unit_str[1]
 
                     info[key] = value
-
+            else:
+                exit("DELETED")
         return info
 
     def __get_advanced_info(self):
@@ -258,14 +280,9 @@ class AvitoParser:
 
     def __get_date(self):
         tag_date = soup.find('div', {"class":'title-info-metadata-item-redesign'})  # поиск одной записи с тегом <div> и определенным классо
-        # pprint(tag_date)
         if not tag_date:
             return None
         info_date = tag_date.get_text().replace('\n', '')  # редактируем запись, избавляясь от лишних символов/слов
-        # pprint(info_date)
-
-        dmy = re.findall(r'\w+',info_date)  # используя регулярное выражение получаем список [номер объявления, когда размещена, 'в', часы, минуты]
-        hms = re.findall(r'\w+',info_date)
         now_date = datetime.today()
 
         date_time = {
@@ -273,13 +290,11 @@ class AvitoParser:
             'month': None,
             'year': None,
             'hour': None,
-            'minute': None,
-            'second': None
+            'minute': None
         }  # сформирован словарь
 
         result = re.findall(r'(\d*) (\w+) в (\d{1,2}):(\d{1,2})', info_date)
-
-        if result[0]:
+        if len(result) != 0:
             if result[0][1] == 'вчера':
                 date_time['day'] = int((now_date - timedelta(1)).day)
                 date_time['month'] = (now_date - timedelta(1)).month
@@ -302,10 +317,16 @@ class AvitoParser:
                 date_time['minute'] = result[0][3]
             else:
                 date_time['minute'] = now_date.minute
-
-
+        else:
+            result = re.findall(r'(\d+)\s(\w+)\s(\d{4})', info_date)
+            if len(result) != 0:
+                date_time['month'] = self.month_num(result[0][1].lower())
+                date_time['year'] = result[0][2]
+                date_time['day'] = result[0][0]
+                date_time['hour'] = 0
+                date_time['minute'] = 5
         date = datetime(int(date_time['year']), int(date_time['month']), int(date_time['day']), int(date_time['hour']), int(date_time['minute']))
-        msc_date = date #mediatorCompany- timedelta(hours=7)
+        msc_date = date
         unix_date = int(time.mktime(msc_date.timetuple()))
 
         return unix_date
@@ -357,7 +378,7 @@ class AvitoParser:
                     street = address_clear[-2].strip()
                     house_number = address_clear[-1].strip()
                 addressBlock['street'] = street.strip()
-                addressBlock['house'] = house_number
+                addressBlock['building'] = house_number
             except IndexError:
                 try:
                     addressBlock['street'] = address_clear.strip()
@@ -442,25 +463,30 @@ class AvitoParser:
             return off_str.get_TC('дачныйземельныйучасток')
 
     def __get_phones(self, params):
-        ar = params['link'].split("_")
-        mobile_link = "https://m.avito.ru/api/1/items/" + ar[len(ar)-1] + "/phone?key=af0deccbgcgidddjgnvljitntccdduijhdinfgjgfjir"
+        has_phone = soup.findAll('a', {'class': 'item-phone-button'})
         phone = None
-        while phone is None:  # "крутить" цикл, пока не поймана запись с заданным атрибутом
-            mobile_html_code = self.__get_html(mobile_link)  # получение html кода мобильной версии сайта
-            json_acceptable_string = mobile_html_code.replace("'", "\"")
-            res = json.loads(json_acceptable_string)
-            if res['result']:
-                tag_numbers = res['result']['action']['uri']
-                phone = re.findall('number=%2B(.+)', tag_numbers)
-                if phone:
-                    phone = phone[0]
-                else:
-                    phone = None
-        if phone.startswith('7') and len(phone) == 11:
-            phone = phone.replace('7', '', 1)
-        elif len(phone) == 6:
-            phone = '4212' + phone
-        return phone
+        if len(has_phone) > 0:
+            ar = params['link'].split("_")
+            mobile_link = "https://m.avito.ru/api/1/items/" + ar[len(ar)-1] + "/phone?key=af0deccbgcgidddjgnvljitntccdduijhdinfgjgfjir"
+
+            while phone is None:  # "крутить" цикл, пока не поймана запись с заданным атрибутом
+                mobile_html_code = self.__get_html(mobile_link)  # получение html кода мобильной версии сайта
+                if mobile_html_code:
+                    json_acceptable_string = mobile_html_code.replace("'", "\"")
+                    res = json.loads(json_acceptable_string)
+                    if res.get('result') and res['result'].get('action'):
+                        tag_numbers = res['result']['action']['uri']
+                        phone = re.findall('number=%2B(.+)', tag_numbers)
+                        if phone:
+                            phone = phone[0]
+                        else:
+                            phone = None
+            if phone.startswith('7') and len(phone) == 11:
+                phone = phone.replace('7', '', 1)
+            elif len(phone) == 6:
+                phone = '4212' + phone
+            return { 'main' : phone}
+        return {}
 
     def __get_type_novelty(self):
         try:
@@ -488,7 +514,7 @@ class AvitoParser:
 
             for photo_url in tag_photos:
                 photo = {
-                    'addDate': datetime.now(),
+                    'addDate': int(time.mktime(datetime.now().timetuple())),
                     'ext': "jpg",
                     'fullName': "avito_img.jpg",
                     'href': 'https:' + photo_url['data-url'],
@@ -525,11 +551,11 @@ class AvitoParser:
             if info['количество комнат'] == 'студии':
                 data['roomsCount'] = 1
                 data['roomsScheme'] = off_str.get_room_scheme(info['количество комнат'])
-
+            elif info['количество комнат'] == 'своб.планировка':
+                data['roomsScheme'] = off_str.get_room_scheme('свободная планировка')
             else:
                 rooms = int(info['количество комнат'].replace('-комнатные',''))
                 data['roomsCount'] = rooms
-
         else:
             return None
 
